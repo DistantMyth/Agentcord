@@ -1,0 +1,21 @@
+{
+  "name": "@oh-my-pi/agentcord",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agentcord: Multi-user collaborative AI agent network fork of oh-my-pi with King/Queen/Worker hierarchy, preserved memory, GC/DM context protection, and live responsibility tracking",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "agentcord": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun src/cli.ts",
+    "gui": "bun src/cli.ts --gui",
+    "relay": "bun src/cli.ts --relay-only",
+    "test": "bun test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

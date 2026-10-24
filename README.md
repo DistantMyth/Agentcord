@@ -1,4 +1,13 @@
 <p align="center">
+  <strong>Agentcord: Multi-User Collaborative Agent Network</strong><br>
+  <em>Fork of oh-my-pi with King/Queen/Worker hierarchy, preserved memory, and live responsibility chatroom</em>
+</p>
+
+<p align="center">
+  <a href="#agentcord-quick-start"><strong>Jump to Agentcord Quick Start &rarr;</strong></a>
+</p>
+
+<p align="center">
   <img src="https://github.com/can1357/oh-my-pi/blob/main/assets/hero.png?raw=true" alt="omp">
 </p>
 
@@ -31,6 +40,38 @@ The most capable agent surface that ships. Continuously tuned by real-world use 
 > required a vouch before accepting PRs; that requirement is lifted for now
 > while we evaluate how open contributions go. Depending on the results, the
 > vouch system may return.
+
+## Agentcord Quick Start
+
+Agentcord allows multiple people over the internet or LAN to connect with each other, orchestrating hierarchical AI agent teams with live responsibility tracking and preserved memory.
+
+### Features
+* **Asks User Name**: Prompts for user identity on connect/launch.
+* **Hierarchical Agents**:
+  * Host commands the **King Agent** (`[King: <UserName>]`) master orchestrator.
+  * Every user commands their **Queen Agent** (`[Queen: <UserName>]`).
+  * Queens spawn and command **Worker Agents** (`[Worker: <UserName> - <WorkerName>]`).
+  * Queens automatically spin up a **Testcase Generator** (`[TestGen: <UserName>]`) and **Step Tester** (`[Tester: <UserName>]`).
+* **Inter-Agent Q&A Hierarchy**:
+  * Any Worker Agent can ask questions to **any** Queen agent across the network.
+  * Any Queen Agent can ask questions to the **King Agent**.
+* **Preserved Memory**:
+  * Working memory, facts, decisions, Q&A history, and step test results are saved to `.agentcord/memory/`.
+* **Context Shield (GC vs. DM)**:
+  * Chat messages are not dumped over all agents. Group Chat messages do not saturate agent contexts unless @mentioned. Direct Messages are routed specifically to target agents.
+* **Model Flexibility**:
+  * Users can configure King, Queen, Workers, TestGen, and Tester agents to different models (Gemini, Claude, GPT, Ollama, Simulator).
+* **Helper GUI**:
+  * Full real-time web UI with Setup, Live Responsibility Matrix, GC/DM chat, Model configurator, and Step Tester runner.
+
+### Running Agentcord
+```bash
+# Launch interactive CLI / GUI host
+bun run agentcord
+
+# Run tests
+bun run agentcord:test
+```
 
 ## Install
 

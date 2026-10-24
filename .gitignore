@@ -45,6 +45,7 @@ coverage/
 packages/ai/test/.temp-images/
 
 # Project specific
+.agentcord/
 !.omp/
 .omp/plugins/
 .pi_config/

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Agentcord — Multi-Agent Collaborative Hub</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<!-- Top Navigation Header -->
+	<header class="top-header">
+		<div class="brand">
+			<span>Agentcord</span>
+			<span class="brand-badge">Fork of oh-my-pi</span>
+		</div>
+
+		<div class="header-status">
+			<div class="status-pill" id="userPill">
+				<span class="dot"></span>
+				<span id="userNameDisplay">Connecting...</span>
+			</div>
+			<div class="status-pill" id="roomPill">
+				<span>Room: <strong id="roomIdDisplay">...</strong></span>
+			</div>
+			<button class="btn btn-xs" id="copyInviteBtn" title="Copy shareable invite link for other peers over internet/LAN">
+				📋 Copy Invite Link
+			</button>
+		</div>
+
+		<div class="header-actions">
+			<button class="btn btn-queen" id="spawnWorkerBtn">+ Spawn Worker</button>
+			<button class="btn btn-primary" id="runTestCycleBtn">⚡ Run Step Test</button>
+			<button class="btn" id="openModelsBtn">⚙️ Models</button>
+			<button class="btn" id="askQuestionBtn">❓ Ask Question</button>
+		</div>
+	</header>
+
+	<!-- Main 3-Column Layout -->
+	<main class="app-container">
+		<!-- Left Panel: Live Agent & Responsibility Roster -->
+		<aside class="panel">
+			<div class="panel-head">
+				<span class="panel-title">Active Agents & Responsibilities</span>
+				<span class="badge-king role-badge" id="agentCountBadge">0 Agents</span>
+			</div>
+			<div class="agent-list" id="agentList">
+				<!-- Dynamically rendered agent cards -->
+			</div>
+		</aside>
+
+		<!-- Center Panel: Unified Chat with GC & DM Context Protection -->
+		<section class="chat-container">
+			<div class="chat-tabs" id="chatTabs">
+				<div class="chat-tab active" data-tab="gc" id="tabGc"># Group Chat (GC)</div>
+				<div class="chat-tab" data-tab="dm" id="tabDm">💬 Direct Messages (DM)</div>
+			</div>
+
+			<div class="context-shield-banner" id="contextShieldBanner">
+				🛡️ <strong>Context Shield Active:</strong> GC messages do not saturate agent token windows. Agents only consume tokens for DMs and direct @mentions.
+			</div>
+
+			<!-- Message Stream -->
+			<div class="message-stream" id="messageStream">
+				<!-- Dynamically rendered chat messages -->
+			</div>
+
+			<!-- Chat Composer -->
+			<footer class="chat-composer">
+				<div class="composer-toolbar">
+					<div class="composer-target">
+						<span>Send to:</span>
+						<select class="composer-select" id="recipientSelect">
+							<option value="gc">📢 [GC] Group Chat (Everyone)</option>
+						</select>
+					</div>
+					<span style="font-size:0.75rem; color:var(--text-muted)">Press Enter to send</span>
+				</div>
+				<div class="composer-input-row">
+					<textarea
+						class="composer-textarea"
+						id="messageInput"
+						placeholder="Message everyone in Group Chat or choose an Agent to DM..."
+						rows="1"
+					></textarea>
+					<button class="btn btn-primary" id="sendBtn">Send</button>
+				</div>
+			</footer>
+		</section>
+
+		<!-- Right Panel: Step Tests & Preserved Memory -->
+		<aside class="panel panel-right">
+			<div class="tab-headers-right">
+				<button class="tab-btn-right active" id="tabRightTests">Tests & Verification</button>
+				<button class="tab-btn-right" id="tabRightMemory">Preserved Memory</button>
+			</div>
+
+			<!-- Test View -->
+			<div class="panel-content-scroll" id="testsView">
+				<div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:4px;">
+					<strong>Testcase Generator & Step Tester:</strong> Queen helper agents continuously formulate and verify assertions at each step.
+				</div>
+				<div id="testItemsList">
+					<!-- Dynamically rendered test items -->
+				</div>
+			</div>
+
+			<!-- Preserved Memory View -->
+			<div class="panel-content-scroll" id="memoryView" style="display:none;">
+				<div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:4px;">
+					<strong>Persistent Agent Memory:</strong> Preserved working memory, facts, decisions, and Q&A history stored in <code>.agentcord/memory/</code>.
+				</div>
+				<div id="memoryItemsList">
+					<!-- Dynamically rendered memory cards -->
+				</div>
+			</div>
+		</aside>
+	</main>
+
+	<!-- Setup / Connect Modal -->
+	<div class="modal-overlay" id="setupModal" style="display:flex;">
+		<div class="modal-card">
+			<h2 class="modal-title">Welcome to Agentcord</h2>
+			<p class="modal-desc">
+				Agentcord is a multi-user collaborative agent network fork of oh-my-pi.
+				Connected users collaborate in a shared chatroom where each user commands a Queen agent and helper workers, overseen by the King agent.
+			</p>
+
+			<div class="form-group">
+				<label class="form-label" for="userNameInput">Enter Your Name:</label>
+				<input class="form-input" type="text" id="userNameInput" placeholder="e.g. Alice, Bob, Charlie" autofocus>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Connection Mode:</label>
+				<div style="display:flex; gap:12px; margin-top:4px;">
+					<label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;">
+						<input type="radio" name="connectMode" value="host" checked> Host New Room (King + Queen)
+					</label>
+					<label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer;">
+						<input type="radio" name="connectMode" value="join"> Join Existing Room (Queen)
+					</label>
+				</div>
+			</div>
+
+			<div class="form-group" id="joinLinkGroup" style="display:none;">
+				<label class="form-label" for="joinLinkInput">Room Join Code or URL:</label>
+				<input class="form-input" type="text" id="joinLinkInput" placeholder="ws://host:port/?room=... or room ID">
+			</div>
+
+			<div class="modal-actions">
+				<button class="btn btn-primary" id="confirmSetupBtn" style="padding:8px 18px; font-weight:600;">
+					Enter Agentcord &rarr;
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Model Configuration Modal -->
+	<div class="modal-overlay" id="modelsModal" style="display:none;">
+		<div class="modal-card">
+			<h2 class="modal-title">Configure Agent Models</h2>
+			<p class="modal-desc">
+				All Queen, King, and Helper agents can be configured to different models independently.
+			</p>
+
+			<div class="form-group">
+				<label class="form-label">King Agent Model (Host Master):</label>
+				<select class="form-input" id="kingModelSelect"></select>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Your Queen Agent Model:</label>
+				<select class="form-input" id="queenModelSelect"></select>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Your Helper / Worker Agents Model:</label>
+				<select class="form-input" id="workerModelSelect"></select>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Testcase Generator Helper Model:</label>
+				<select class="form-input" id="testgenModelSelect"></select>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Step Tester Helper Model:</label>
+				<select class="form-input" id="testerModelSelect"></select>
+			</div>
+
+			<div class="modal-actions">
+				<button class="btn" id="closeModelsBtn">Cancel</button>
+				<button class="btn btn-primary" id="saveModelsBtn">Save Configurations</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Ask Question Modal (Worker -> Queen or Queen -> King) -->
+	<div class="modal-overlay" id="questionModal" style="display:none;">
+		<div class="modal-card">
+			<h2 class="modal-title">Escalate / Ask Question</h2>
+			<p class="modal-desc">
+				Worker Agents can ask questions to ANY Queen agent. Queen Agents can ask questions to the King Agent.
+			</p>
+
+			<div class="form-group">
+				<label class="form-label">Asking Agent (From):</label>
+				<select class="form-input" id="qFromSelect"></select>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Target Authority (To):</label>
+				<select class="form-input" id="qToSelect"></select>
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Question Details:</label>
+				<textarea class="form-input" id="qTextInput" rows="3" placeholder="State your domain inquiry or architectural decision request..."></textarea>
+			</div>
+
+			<div class="modal-actions">
+				<button class="btn" id="closeQuestionBtn">Cancel</button>
+				<button class="btn btn-primary" id="submitQuestionBtn">Submit Escalation</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Spawn Worker Modal -->
+	<div class="modal-overlay" id="spawnWorkerModal" style="display:none;">
+		<div class="modal-card">
+			<h2 class="modal-title">Spawn Helper Worker Agent</h2>
+			<p class="modal-desc">
+				Your Queen agent commands over helper worker agents for specific sub-tasks.
+			</p>
+
+			<div class="form-group">
+				<label class="form-label">Worker Name / Specialty:</label>
+				<input class="form-input" type="text" id="newWorkerName" placeholder="e.g. AuthWorker, DatabaseWorker, ApiWorker">
+			</div>
+
+			<div class="form-group">
+				<label class="form-label">Assigned Responsibility:</label>
+				<textarea class="form-input" id="newWorkerResp" rows="2" placeholder="e.g. Implement OAuth2 login endpoints and session tokens"></textarea>
+			</div>
+
+			<div class="modal-actions">
+				<button class="btn" id="closeSpawnBtn">Cancel</button>
+				<button class="btn btn-queen" id="confirmSpawnBtn">Spawn Worker Agent</button>
+			</div>
+		</div>
+	</div>
+
+	<script src="app.js"></script>
+</body>
+</html>
