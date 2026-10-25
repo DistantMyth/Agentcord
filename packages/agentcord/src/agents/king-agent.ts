@@ -1,10 +1,13 @@
 import { BaseAgent, type BaseAgentOptions } from "./base-agent";
+import type { QueenAgent } from "./queen-agent";
+import { INITIAL_RESPONSIBILITIES } from "../prompts/agent-prompt";
 
 export class KingAgent extends BaseAgent {
 	constructor(opts: Omit<BaseAgentOptions, "role">) {
 		super({
 			...opts,
 			role: "king",
+			responsibility: opts.responsibility || INITIAL_RESPONSIBILITIES.king,
 		});
 	}
 
@@ -27,13 +30,40 @@ export class KingAgent extends BaseAgent {
 		this.recordDecision(`Decomposed master goal: "${masterGoal}"`, response);
 		this.setStatus("working");
 
-		// Provide structured fallback assignments if LLM is concise
 		const assignments: Record<string, string> = {};
 		for (let i = 0; i < connectedQueens.length; i++) {
 			const q = connectedQueens[i]!;
 			assignments[q] = `Module ${i + 1} for: ${masterGoal}`;
 		}
 		return assignments;
+	}
+
+	/**
+	 * Assign or edit responsibility of a Queen agent under this King.
+	 */
+	assignQueenResponsibility(queenIdOrName: string, newResponsibility: string, allQueens?: QueenAgent[]): boolean {
+		if (allQueens) {
+			const target = queenIdOrName.trim().toLowerCase();
+			for (const q of allQueens) {
+				if (
+					q.id.toLowerCase() === target ||
+					q.name.toLowerCase() === target ||
+					q.owner.toLowerCase() === target
+				) {
+					q.setResponsibility(newResponsibility);
+					this.recordDecision(
+						`Assigned Queen ${q.name} responsibility`,
+						`New responsibility: "${newResponsibility}"`
+					);
+					return true;
+				}
+			}
+		}
+		this.recordDecision(
+			`King Directive: assign responsibility to Queen ${queenIdOrName}`,
+			`New responsibility: "${newResponsibility}"`
+		);
+		return true;
 	}
 
 	/**

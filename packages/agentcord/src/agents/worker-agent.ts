@@ -1,11 +1,13 @@
 import { BaseAgent, type BaseAgentOptions } from "./base-agent";
 import type { QueenAgent } from "./queen-agent";
+import { INITIAL_RESPONSIBILITIES } from "../prompts/agent-prompt";
 
 export class WorkerAgent extends BaseAgent {
 	constructor(opts: Omit<BaseAgentOptions, "role">) {
 		super({
 			...opts,
 			role: "worker",
+			responsibility: opts.responsibility || INITIAL_RESPONSIBILITIES.worker,
 		});
 	}
 
@@ -27,7 +29,7 @@ export class WorkerAgent extends BaseAgent {
 		this.setStatus("working");
 		const systemPrompt =
 			`You are Worker Agent (${this.name}), dedicated to: "${this.responsibility}". ` +
-			`Complete the requested sub-task with high precision, maintaining clean code and strict compliance.`;
+			`Complete the requested sub-task with high precision, maintaining clean code and strict compliance with project architecture.`;
 
 		const output = await this.generate(systemPrompt, taskPrompt);
 		this.recordDecision(`Executed task: ${taskPrompt}`, output);

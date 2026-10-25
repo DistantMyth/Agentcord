@@ -1,6 +1,7 @@
 import type { AgentMemoryStore } from "../memory";
 import type { AgentProviderClient } from "../models";
 import { formatAgentName } from "../naming";
+import { buildAgentcordSystemPrompt } from "../prompts/agent-prompt";
 import type { AgentInfo, AgentRole, AgentStatus } from "../types";
 
 export interface BaseAgentOptions {
@@ -100,12 +101,24 @@ export abstract class BaseAgent {
 		};
 	}
 
+	getSystemPrompt(extraInstructions?: string): string {
+		const base = buildAgentcordSystemPrompt({
+			role: this.role,
+			name: this.name,
+			owner: this.owner,
+			responsibility: this.responsibility,
+			parentId: this.parentId,
+		});
+		return extraInstructions ? `${base}\n\n# CURRENT TASK INSTRUCTIONS\n${extraInstructions}` : base;
+	}
+
 	protected async generate(systemPrompt: string, userPrompt: string): Promise<string> {
 		this.lastActiveAt = Date.now();
 		const memoryContext = this.memoryStore.formatPromptMemory(this.id);
+		const fullSystemPrompt = `${this.getSystemPrompt(systemPrompt)}\n\n${memoryContext}`;
 		return await this.providerClient.generate(
 			this.model,
-			`${systemPrompt}\n\n${memoryContext}`,
+			fullSystemPrompt,
 			userPrompt,
 			{
 				role: this.role,

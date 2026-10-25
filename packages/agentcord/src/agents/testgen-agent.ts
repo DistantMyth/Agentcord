@@ -1,11 +1,13 @@
 import type { TestCase } from "../types";
 import { BaseAgent, type BaseAgentOptions } from "./base-agent";
+import { INITIAL_RESPONSIBILITIES } from "../prompts/agent-prompt";
 
 export class TestGenAgent extends BaseAgent {
 	constructor(opts: Omit<BaseAgentOptions, "role">) {
 		super({
 			...opts,
 			role: "testgen",
+			responsibility: opts.responsibility || INITIAL_RESPONSIBILITIES.testgen,
 		});
 	}
 
@@ -49,13 +51,13 @@ export class TestGenAgent extends BaseAgent {
 				name: `State & Memory Invariant Test`,
 				description: `Verifies persistent memory preservation and state continuity`,
 				responsibility,
-				expected: "Memory store contains updated records and facts",
+				expected: "Preserved memory reflects correct state mutation without leakage",
 				createdAt: Date.now(),
 			},
 		];
 
 		for (const t of tests) {
-			this.recordFact(`Created testcase: ${t.name}`);
+			this.memoryStore.addFact(this.id, `Testcase defined: [${t.name}] ${t.expected}`);
 		}
 
 		this.setStatus("idle");

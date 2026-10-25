@@ -1,11 +1,13 @@
 import type { TestCase, TestRunResult } from "../types";
 import { BaseAgent, type BaseAgentOptions } from "./base-agent";
+import { INITIAL_RESPONSIBILITIES } from "../prompts/agent-prompt";
 
 export class TesterAgent extends BaseAgent {
 	constructor(opts: Omit<BaseAgentOptions, "role">) {
 		super({
 			...opts,
 			role: "tester",
+			responsibility: opts.responsibility || INITIAL_RESPONSIBILITIES.tester,
 		});
 	}
 
@@ -29,7 +31,12 @@ export class TesterAgent extends BaseAgent {
 			const out = await this.generate(systemPrompt, userPrompt);
 
 			const lower = out.toLowerCase();
-			const passed = (lower.includes("pass") || lower.includes("success")) && !lower.includes("failure") && !lower.includes("failed") && !lower.includes("status: error");
+			const passed =
+				(lower.includes("pass") || lower.includes("success")) &&
+				!lower.includes("failure") &&
+				!lower.includes("failed") &&
+				!lower.includes("status: error");
+
 			const runResult: TestRunResult = {
 				id: `run_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
 				testId: tc.id,
@@ -48,7 +55,6 @@ export class TesterAgent extends BaseAgent {
 			`Step ${stepNumber} Testing Finished`,
 			`Ran ${testCases.length} tests. All ${results.filter(r => r.passed).length}/${results.length} passed.`
 		);
-
 		this.setStatus("idle");
 		return results;
 	}

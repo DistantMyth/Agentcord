@@ -32,11 +32,17 @@ describe("Queen Helper Agents: Testcase Generator & Step Tester", () => {
 		expect(queen.testerAgent.model).toBe("mock-sim-fast");
 		expect(queen.testerAgent.parentId).toBe(queen.id);
 
-		// All subagents list contains both
+		// 3. Verify Primary Worker agent is automatically present
+		expect(queen.primaryWorker).toBeDefined();
+		expect(queen.primaryWorker.role).toBe("worker");
+		expect(queen.primaryWorker.name).toBe("[Worker: Alice - Worker]");
+
+		// All subagents list contains primaryWorker, TestGen, and Tester
 		const subagents = queen.getAllSubagents();
-		expect(subagents.length).toBe(2);
-		expect(subagents[0]!.name).toBe("[TestGen: Alice]");
-		expect(subagents[1]!.name).toBe("[Tester: Alice]");
+		expect(subagents.length).toBe(3);
+		expect(subagents.some((s) => s.name === "[Worker: Alice - Worker]")).toBe(true);
+		expect(subagents.some((s) => s.name === "[TestGen: Alice]")).toBe(true);
+		expect(subagents.some((s) => s.name === "[Tester: Alice]")).toBe(true);
 	});
 
 	test("Runs full testcase generation and step testing cycle", async () => {
@@ -75,5 +81,30 @@ describe("Queen Helper Agents: Testcase Generator & Step Tester", () => {
 		expect(queen.responsibility).toBe("Distributed Cache with Raft Consensus");
 		expect(queen.testgenAgent.responsibility).toContain("Distributed Cache with Raft Consensus");
 		expect(queen.testerAgent.responsibility).toContain("Distributed Cache with Raft Consensus");
+	});
+
+	test("Queen can edit and assign responsibilities to each subagent individually", () => {
+		const queen = new QueenAgent({
+			owner: "Diana",
+			responsibility: "Data Pipeline",
+			model: "mock-sim-pro",
+			memoryStore,
+			providerClient,
+		});
+
+		// Queen assigns new responsibility to worker
+		const workerAssigned = queen.assignSubagentResponsibility("worker", "Build Kafka producer adapter");
+		expect(workerAssigned).toBe(true);
+		expect(queen.primaryWorker.responsibility).toBe("Build Kafka producer adapter");
+
+		// Queen assigns new responsibility to testgen
+		const testgenAssigned = queen.assignSubagentResponsibility("testgen", "Generate edge case tests for schema mismatch");
+		expect(testgenAssigned).toBe(true);
+		expect(queen.testgenAgent.responsibility).toBe("Generate edge case tests for schema mismatch");
+
+		// Queen assigns new responsibility to tester
+		const testerAssigned = queen.assignSubagentResponsibility("tester", "Execute load testing suite with mock broker");
+		expect(testerAssigned).toBe(true);
+		expect(queen.testerAgent.responsibility).toBe("Execute load testing suite with mock broker");
 	});
 });

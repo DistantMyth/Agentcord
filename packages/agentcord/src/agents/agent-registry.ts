@@ -74,7 +74,9 @@ export class AgentRegistry {
 	updateResponsibility(agentId: string, responsibility: string): boolean {
 		const agent = this.agents.get(agentId);
 		if (!agent) return false;
-		agent.setResponsibility(responsibility);
+		if (agent.responsibility !== responsibility) {
+			agent.setResponsibility(responsibility);
+		}
 		this.notify();
 		return true;
 	}

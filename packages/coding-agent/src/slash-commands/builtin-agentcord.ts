@@ -111,6 +111,26 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				return;
 			}
 
+			if (verb === "assign") {
+				const parts = rest.trim().split(" ");
+				if (parts.length < 2) {
+					runtime.ctx.showError("Usage: /agentcord assign <targetRoleOrId> <newResponsibility>");
+					return;
+				}
+				const target = parts[0]!;
+				const newResp = parts.slice(1).join(" ");
+				const assigned = bridge.assignResponsibility("user", target, newResp);
+				if (assigned) {
+					runtime.ctx.showStatus(
+						theme.fg("success", `Updated responsibility for [${target}] to: "${newResp}"`),
+						{ dim: false }
+					);
+				} else {
+					runtime.ctx.showError(`Failed to assign responsibility to [${target}]. Ensure target exists and matches hierarchy rules.`);
+				}
+				return;
+			}
+
 			if (verb === "name") {
 				if (rest.trim()) {
 					bridge.setUserName(rest.trim());
@@ -121,7 +141,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				return;
 			}
 
-			runtime.ctx.showError(`Unknown subcommand "/agentcord ${verb}". Use /agentcord status|gui|connect|test|worker|name.`);
+			runtime.ctx.showError(`Unknown subcommand "/agentcord ${verb}". Use /agentcord status|gui|connect|test|worker|assign|name.`);
 		},
 	},
 	{

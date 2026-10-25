@@ -22,6 +22,7 @@ import { ChatRoom } from "../../../agentcord/src/chat";
 import { AgentMemoryStore } from "../../../agentcord/src/memory";
 import { ModelConfigManager, AgentProviderClient } from "../../../agentcord/src/models";
 import { AgentcordRelayServer, AgentcordPeerClient } from "../../../agentcord/src/network";
+import { INITIAL_RESPONSIBILITIES } from "../../../agentcord/src/prompts/agent-prompt";
 import type {
 	ChatMessage,
 	MessageType,
@@ -104,6 +105,10 @@ export class AgentcordBridge {
 		return this.#kingAgent;
 	}
 
+	get workerAgent(): WorkerAgent {
+		return this.#queenAgent.primaryWorker;
+	}
+
 	get testGenAgent(): TestGenAgent {
 		return this.#testGenAgent;
 	}
@@ -160,7 +165,7 @@ export class AgentcordBridge {
 		if (this.#isKing) {
 			this.#kingAgent = new KingAgent({
 				owner: this.#userName,
-				responsibility: "Global Architecture & Multi-User Governance",
+				responsibility: INITIAL_RESPONSIBILITIES.king,
 				model: this.#modelConfig.getModelForRole("king", this.#userName),
 				memoryStore: this.#memoryStore,
 				providerClient: this.#providerClient,
@@ -170,7 +175,7 @@ export class AgentcordBridge {
 
 		this.#queenAgent = new QueenAgent({
 			owner: this.#userName,
-			responsibility: "User Domain Architecture & Helper Command",
+			responsibility: INITIAL_RESPONSIBILITIES.queen,
 			model: this.#modelConfig.getModelForRole("queen", this.#userName),
 			memoryStore: this.#memoryStore,
 			providerClient: this.#providerClient,
@@ -180,6 +185,8 @@ export class AgentcordBridge {
 		this.#testGenAgent = this.#queenAgent.testgenAgent;
 		this.#testerAgent = this.#queenAgent.testerAgent;
 
+		// Ensure primary worker is registered in the registry alongside Queen, TestGen, and Tester
+		this.#agentRegistry.register(this.#queenAgent.primaryWorker);
 		this.#agentRegistry.register(this.#testGenAgent);
 		this.#agentRegistry.register(this.#testerAgent);
 
@@ -283,11 +290,63 @@ export class AgentcordBridge {
 	 */
 	createWorker(specialty: string, responsibility: string): WorkerAgent {
 		const worker = this.#queenAgent.spawnWorker(specialty, responsibility);
-		worker.setStatus("active");
 		this.#workers.set(worker.id, worker);
 		this.#agentRegistry.register(worker);
 		this.#syncResponsibilitiesToChat();
 		return worker;
+	}
+
+	/**
+	 * Hierarchy authority: Superior agent edits and assigns responsibility to a subagent under it.
+	 * - King can edit Queen responsibility.
+	 * - Queen can edit Worker, TestGen, Tester responsibility.
+	 * - User can edit Queen or King responsibility.
+	 */
+	assignResponsibility(fromRoleOrId: string, targetRoleOrId: string, newResponsibility: string): boolean {
+		const from = fromRoleOrId.toLowerCase().trim();
+		const target = targetRoleOrId.toLowerCase().trim();
+		const newResp = newResponsibility.trim();
+		if (!newResp) return false;
+
+		// King assigning Queen
+		if (from === "king" || from.startsWith("king")) {
+			if (target === "queen" || target.startsWith("queen")) {
+				this.#queenAgent.setResponsibility(newResp);
+				this.#syncResponsibilitiesToChat();
+				return true;
+			}
+			return false;
+		}
+
+		// Queen assigning subagents (Worker, TestGen, Tester)
+		if (from === "queen" || from.startsWith("queen")) {
+			const success = this.#queenAgent.assignSubagentResponsibility(targetRoleOrId, newResp);
+			if (success) {
+				this.#syncResponsibilitiesToChat();
+			}
+			return success;
+		}
+
+		// User assigning Queen, King, or any subagent
+		if (from === "user" || from === this.#userName.toLowerCase()) {
+			if (target === "queen" || target.startsWith("queen")) {
+				this.#queenAgent.setResponsibility(newResp);
+				this.#syncResponsibilitiesToChat();
+				return true;
+			}
+			if (this.#kingAgent && (target === "king" || target.startsWith("king"))) {
+				this.#kingAgent.setResponsibility(newResp);
+				this.#syncResponsibilitiesToChat();
+				return true;
+			}
+			const success = this.#queenAgent.assignSubagentResponsibility(targetRoleOrId, newResp);
+			if (success) {
+				this.#syncResponsibilitiesToChat();
+			}
+			return success;
+		}
+
+		return false;
 	}
 
 	/**
