@@ -2717,6 +2717,7 @@ export async function runRootCommand(
 						const rl = readlinePromises.createInterface({ input: process.stdin, output: process.stdout });
 						const answer = await rl.question("");
 						rl.close();
+						process.stdin.resume();
 						userName = answer.trim() || os.userInfo().username || "User";
 						cfgCollabDisplayName.set(settingsInstance, userName);
 						await settingsInstance.flush();

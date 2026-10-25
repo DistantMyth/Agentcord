@@ -181,7 +181,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 	},
 	{
 		name: "chat",
-		icon: "chat",
+		icon: "broadcast",
 		description: "Send a message into the Agentcord network (GC with Context Shield, or DM)",
 		inlineHint: "<gc|dm> [recipient] <message>",
 		allowArgs: true,

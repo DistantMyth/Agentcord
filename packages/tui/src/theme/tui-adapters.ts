@@ -353,7 +353,7 @@ export function getSelectListTheme(): SelectListTheme {
 export function getSlashCommandTypeIcon(name: SlashCommandIconName): string | undefined {
 	if (typeof theme === "undefined" || theme.getSymbolPreset() === "ascii") return undefined;
 	const icon = theme.cmd[name];
-	return icon.length > 0 ? icon : undefined;
+	return icon && icon.length > 0 ? icon : undefined;
 }
 
 export function getEditorTheme(): EditorTheme {
