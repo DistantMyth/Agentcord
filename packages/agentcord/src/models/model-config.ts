@@ -11,8 +11,9 @@ export interface UserRoleModels {
 export interface ModelDescriptor {
 	id: string;
 	name: string;
-	provider: "anthropic" | "openai" | "google" | "ollama" | "simulation";
+	provider: string;
 	description: string;
+	available?: boolean;
 }
 
 export const CATALOG_MODELS: ModelDescriptor[] = [
@@ -83,6 +84,18 @@ export const DEFAULT_MODELS: UserRoleModels = {
 export class ModelConfigManager {
 	private readonly userDefaults = new Map<string, UserRoleModels>();
 	private readonly agentSpecific = new Map<string, string>();
+	#availableModels: ModelDescriptor[] | null = null;
+
+	setAvailableModels(models: ModelDescriptor[]): void {
+		this.#availableModels = models;
+	}
+
+	getAvailableModels(): ModelDescriptor[] {
+		if (this.#availableModels && this.#availableModels.length > 0) {
+			return [...this.#availableModels];
+		}
+		return [...CATALOG_MODELS];
+	}
 
 	setUserModels(user: string, models: Partial<UserRoleModels>): void {
 		const existing = this.getUserModels(user);
@@ -138,9 +151,5 @@ export class ModelConfigManager {
 			default:
 				return userModels.workerModel;
 		}
-	}
-
-	getAvailableModels(): ModelDescriptor[] {
-		return [...CATALOG_MODELS];
 	}
 }

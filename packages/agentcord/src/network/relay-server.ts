@@ -17,6 +17,7 @@ export interface RelayServerOptions {
 	modelManager: ModelConfigManager;
 	memoryStore: AgentMemoryStore;
 	guiPath?: string;
+	onModelUpdate?: (role: string, model: string, user?: string) => void;
 }
 
 interface SocketData {
@@ -35,6 +36,7 @@ export class AgentcordRelayServer {
 	private readonly modelManager: ModelConfigManager;
 	private readonly memoryStore: AgentMemoryStore;
 	private readonly guiPath: string;
+	private readonly onModelUpdate?: (role: string, model: string, user?: string) => void;
 
 	private readonly sockets = new Set<ServerWebSocket<SocketData>>();
 	private readonly users = new Map<string, UserInfo>();
@@ -52,6 +54,7 @@ export class AgentcordRelayServer {
 		this.modelManager = opts.modelManager;
 		this.memoryStore = opts.memoryStore;
 		this.guiPath = opts.guiPath || path.resolve(__dirname, "..", "gui", "public");
+		this.onModelUpdate = opts.onModelUpdate;
 
 		// Register host user
 		this.users.set(this.hostUser, {
@@ -108,7 +111,16 @@ export class AgentcordRelayServer {
 				}
 
 				if (url.pathname === "/api/models") {
-					return Response.json(self.modelManager.getAvailableModels());
+					return Response.json({
+						available: self.modelManager.getAvailableModels(),
+						current: {
+							king: self.modelManager.getModelForRole("king", self.hostUser),
+							queen: self.modelManager.getModelForRole("queen", self.hostUser),
+							worker: self.modelManager.getModelForRole("worker", self.hostUser),
+							testgen: self.modelManager.getModelForRole("testgen", self.hostUser),
+							tester: self.modelManager.getModelForRole("tester", self.hostUser),
+						},
+					});
 				}
 
 				// GUI Static Files
@@ -251,10 +263,17 @@ export class AgentcordRelayServer {
 				if (frame.agentId) {
 					this.registry.updateModel(frame.agentId, frame.model);
 				}
-				if (frame.userName && frame.role) {
-					this.modelManager.setUserModels(frame.userName, {
+				if (frame.role && frame.model) {
+					const user = frame.userName || this.hostUser;
+					this.modelManager.setUserModels(user, {
 						[`${frame.role}Model`]: frame.model,
 					} as any);
+					for (const agent of this.registry.getAll()) {
+						if (agent.role === frame.role && (!frame.userName || agent.owner === frame.userName)) {
+							agent.model = frame.model;
+						}
+					}
+					this.onModelUpdate?.(frame.role, frame.model, user);
 				}
 				this.broadcast(frame);
 				break;

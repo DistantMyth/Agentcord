@@ -21,6 +21,13 @@ let roomState = {
 };
 
 let availableModels = [];
+let currentRoleModels = {
+	king: "claude-3-7-sonnet",
+	queen: "gemini-2.5-pro",
+	worker: "claude-3-5-haiku",
+	testgen: "gemini-2.5-flash",
+	tester: "mock-sim-fast",
+};
 
 // DOM References
 const setupModal = document.getElementById("setupModal");
@@ -95,7 +102,15 @@ window.addEventListener("DOMContentLoaded", async () => {
 	try {
 		const res = await fetch("/api/models");
 		if (res.ok) {
-			availableModels = await res.json();
+			const data = await res.json();
+			if (Array.isArray(data)) {
+				availableModels = data;
+			} else if (data && Array.isArray(data.available)) {
+				availableModels = data.available;
+				if (data.current) {
+					currentRoleModels = { ...currentRoleModels, ...data.current };
+				}
+			}
 			populateModelSelects();
 		}
 	} catch (e) {
@@ -306,6 +321,39 @@ function handleServerFrame(frame) {
 		case "test_run":
 			roomState.testRuns.push(frame.result);
 			renderTestsView();
+			break;
+
+		case "model_update":
+			if (frame.role && frame.model) {
+				currentRoleModels[frame.role] = frame.model;
+				const selectMap = {
+					king: kingModelSelect,
+					queen: queenModelSelect,
+					worker: workerModelSelect,
+					testgen: testgenModelSelect,
+					tester: testerModelSelect,
+				};
+				const sel = selectMap[frame.role];
+				if (sel) {
+					if ([...sel.options].some(o => o.value === frame.model)) {
+						sel.value = frame.model;
+					}
+				}
+			}
+			if (frame.agentId && roomState && roomState.agents) {
+				const ag = roomState.agents.find(a => a.id === frame.agentId);
+				if (ag) {
+					ag.model = frame.model;
+					renderAgentRoster();
+				}
+			} else if (frame.role && roomState && roomState.agents) {
+				for (const ag of roomState.agents) {
+					if (ag.role === frame.role && (!frame.userName || ag.owner === frame.userName)) {
+						ag.model = frame.model;
+					}
+				}
+				renderAgentRoster();
+			}
 			break;
 	}
 }
@@ -620,22 +668,36 @@ function renderMemoryView() {
 }
 
 function populateModelSelects() {
-	const selects = [kingModelSelect, queenModelSelect, workerModelSelect, testgenModelSelect, testerModelSelect];
-	for (const sel of selects) {
+	const roleSelectPairs = [
+		{ role: "king", sel: kingModelSelect },
+		{ role: "queen", sel: queenModelSelect },
+		{ role: "worker", sel: workerModelSelect },
+		{ role: "testgen", sel: testgenModelSelect },
+		{ role: "tester", sel: testerModelSelect },
+	];
+
+	for (const { role, sel } of roleSelectPairs) {
 		sel.innerHTML = "";
 		for (const m of availableModels) {
 			const opt = document.createElement("option");
 			opt.value = m.id;
-			opt.textContent = `${m.name} (${m.provider})`;
+			opt.textContent = `${m.name} [${m.provider}]`;
 			sel.appendChild(opt);
 		}
-	}
 
-	kingModelSelect.value = "claude-3-7-sonnet";
-	queenModelSelect.value = "gemini-2.5-pro";
-	workerModelSelect.value = "claude-3-5-haiku";
-	testgenModelSelect.value = "gemini-2.5-flash";
-	testerModelSelect.value = "mock-sim-fast";
+		const target = currentRoleModels[role];
+		if (target) {
+			const hasExact = [...sel.options].some(o => o.value === target);
+			if (hasExact) {
+				sel.value = target;
+			} else {
+				const match = [...sel.options].find(o => o.value.endsWith(`/${target}`) || target.endsWith(`/${o.value}`));
+				if (match) {
+					sel.value = match.value;
+				}
+			}
+		}
+	}
 }
 
 function saveModelSelections() {

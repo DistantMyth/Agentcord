@@ -8,8 +8,10 @@
  * - Seamless integration with omp's native model handling (pi-ai / pi-catalog)
  * - Context shield: GC vs DM to prevent agent context overflow
  */
+import { completeSimple, type Api, type Model } from "@oh-my-pi/pi-ai";
 import { logger } from "@oh-my-pi/pi-utils";
 import type { AgentSession } from "../session/agent-session";
+import { cfgModelRoles } from "../config/model-settings";
 import {
 	AgentRegistry,
 	KingAgent,
@@ -21,9 +23,11 @@ import {
 import { ChatRoom } from "../../../agentcord/src/chat";
 import { AgentMemoryStore } from "../../../agentcord/src/memory";
 import { ModelConfigManager, AgentProviderClient } from "../../../agentcord/src/models";
+import { CATALOG_MODELS, type ModelDescriptor } from "../../../agentcord/src/models/model-config";
 import { AgentcordRelayServer, AgentcordPeerClient } from "../../../agentcord/src/network";
 import { INITIAL_RESPONSIBILITIES } from "../../../agentcord/src/prompts/agent-prompt";
 import type {
+	AgentRole,
 	ChatMessage,
 	MessageType,
 	ResponsibilityMatrixEntry,
@@ -51,6 +55,7 @@ export class AgentcordBridge {
 	#chatRoom: ChatRoom;
 	#relayServer?: AgentcordRelayServer;
 	#peerClient?: AgentcordPeerClient;
+	#unsubscribeModelRoles?: () => void;
 
 	#kingAgent?: KingAgent;
 	#queenAgent!: QueenAgent;
@@ -75,6 +80,14 @@ export class AgentcordBridge {
 
 		this.#bindOmpModelProvider();
 		this.#initAgents();
+
+		if (this.#session) {
+			this.#syncAvailableModelsFromOmp();
+			this.#syncModelsFromOmpSettings();
+			this.#unsubscribeModelRoles = cfgModelRoles.listen(this.#session.settings, () => {
+				this.#syncModelsFromOmpSettings();
+			});
+		}
 	}
 
 	get userName(): string {
@@ -120,6 +133,13 @@ export class AgentcordBridge {
 	setSession(session: AgentSession): void {
 		this.#session = session;
 		this.#bindOmpModelProvider();
+		this.#syncAvailableModelsFromOmp();
+		this.#syncModelsFromOmpSettings();
+
+		this.#unsubscribeModelRoles?.();
+		this.#unsubscribeModelRoles = cfgModelRoles.listen(session.settings, () => {
+			this.#syncModelsFromOmpSettings();
+		});
 	}
 
 	setUserName(name: string): void {
@@ -129,12 +149,29 @@ export class AgentcordBridge {
 		this.#initAgents();
 	}
 
+	#resolveModel(modelSpec: string): Model<Api> | undefined {
+		if (!this.#session) return undefined;
+		const registry = this.#session.modelRegistry;
+		const slashIdx = modelSpec.indexOf("/");
+		if (slashIdx !== -1) {
+			const provider = modelSpec.slice(0, slashIdx);
+			const id = modelSpec.slice(slashIdx + 1);
+			const found = registry.find(provider, id);
+			if (found) return found;
+		}
+		const available = registry.getAvailable("all");
+		const foundAvailable = available.find(m => m.id === modelSpec || `${m.provider}/${m.id}` === modelSpec);
+		if (foundAvailable) return foundAvailable;
+
+		return registry.getAll().find(m => m.id === modelSpec || `${m.provider}/${m.id}` === modelSpec);
+	}
+
 	#bindOmpModelProvider(): void {
 		this.#providerClient.setCompletionHandler(async (modelName, systemPrompt, userMessage) => {
 			if (!this.#session) return null;
 			let targetModel = this.#session.model;
 			if (modelName && modelName !== "default" && !modelName.startsWith("mock-") && !modelName.includes("sim")) {
-				const resolved = this.#session.modelRegistry.find(modelName);
+				const resolved = this.#resolveModel(modelName);
 				if (resolved) {
 					targetModel = resolved;
 				}
@@ -142,7 +179,6 @@ export class AgentcordBridge {
 
 			if (targetModel) {
 				try {
-					const { completeSimple } = await import("@oh-my-pi/pi-ai");
 					const result = await completeSimple(targetModel, {
 						systemPrompt,
 						messages: [{ role: "user", content: [{ type: "text", text: userMessage }] }],
@@ -159,6 +195,145 @@ export class AgentcordBridge {
 			}
 			return null;
 		});
+	}
+
+	#syncAvailableModelsFromOmp(): void {
+		if (!this.#session) return;
+		const available = this.#session.modelRegistry.getAvailable("all");
+		const models = available.length > 0 ? available : this.#session.modelRegistry.getAll().slice(0, 100);
+		const seen = new Set<string>();
+		const descriptors: ModelDescriptor[] = [];
+
+		for (const m of models) {
+			const id = `${m.provider}/${m.id}`;
+			if (seen.has(id)) continue;
+			seen.add(id);
+			descriptors.push({
+				id,
+				name: m.name || m.id,
+				provider: m.provider,
+				description: `${m.name || m.id} via ${m.provider}`,
+				available: true,
+			});
+		}
+
+		for (const sim of CATALOG_MODELS.filter(m => m.provider === "simulation")) {
+			if (!seen.has(sim.id)) {
+				descriptors.push(sim);
+			}
+		}
+
+		this.#modelConfig.setAvailableModels(descriptors);
+	}
+
+	#syncModelsFromOmpSettings(): void {
+		if (!this.#session) return;
+		const roles = cfgModelRoles.get(this.#session.settings);
+
+		const kingModel = roles.king || this.#session.settings.getModelRole("king") || undefined;
+		const queenModel = roles.queen || this.#session.settings.getModelRole("queen") || undefined;
+		const workerModel = roles.worker || this.#session.settings.getModelRole("worker") || undefined;
+		const testgenModel = roles.testgen || this.#session.settings.getModelRole("testgen") || undefined;
+		const testerModel = roles.tester || this.#session.settings.getModelRole("tester") || undefined;
+
+		const updates: Record<string, string> = {};
+		if (kingModel) updates.kingModel = kingModel;
+		if (queenModel) updates.queenModel = queenModel;
+		if (workerModel) updates.workerModel = workerModel;
+		if (testgenModel) updates.testgenModel = testgenModel;
+		if (testerModel) updates.testerModel = testerModel;
+
+		this.#modelConfig.setUserModels(this.#userName, updates);
+
+		if (kingModel && this.#kingAgent) {
+			this.#kingAgent.model = kingModel;
+		}
+		if (queenModel) {
+			this.#queenAgent.model = queenModel;
+		}
+		if (workerModel) {
+			this.#queenAgent.primaryWorker.model = workerModel;
+			for (const worker of this.#workers.values()) {
+				worker.model = workerModel;
+			}
+		}
+		if (testgenModel) {
+			this.#testGenAgent.model = testgenModel;
+		}
+		if (testerModel) {
+			this.#testerAgent.model = testerModel;
+		}
+
+		if (this.#relayServer) {
+			for (const [role, model] of [
+				["king", kingModel],
+				["queen", queenModel],
+				["worker", workerModel],
+				["testgen", testgenModel],
+				["tester", testerModel],
+			] as const) {
+				if (model) {
+					this.#relayServer.broadcast({
+						type: "model_update",
+						userName: this.#userName,
+						role,
+						model,
+					});
+				}
+			}
+		}
+	}
+
+	updateRoleModel(role: string, model: string): boolean {
+		const validRoles = ["king", "queen", "worker", "testgen", "tester"];
+		const cleanRole = role.toLowerCase().trim();
+		if (!validRoles.includes(cleanRole)) return false;
+
+		const cleanModel = model.trim();
+		if (!cleanModel) return false;
+
+		this.#modelConfig.setUserModels(this.#userName, {
+			[`${cleanRole}Model`]: cleanModel,
+		} as any);
+
+		if (cleanRole === "king" && this.#kingAgent) {
+			this.#kingAgent.model = cleanModel;
+		} else if (cleanRole === "queen") {
+			this.#queenAgent.model = cleanModel;
+		} else if (cleanRole === "worker") {
+			this.#queenAgent.primaryWorker.model = cleanModel;
+			for (const worker of this.#workers.values()) {
+				worker.model = cleanModel;
+			}
+		} else if (cleanRole === "testgen") {
+			this.#testGenAgent.model = cleanModel;
+		} else if (cleanRole === "tester") {
+			this.#testerAgent.model = cleanModel;
+		}
+
+		if (this.#session) {
+			this.#session.settings.setModelRole(cleanRole, cleanModel);
+			void this.#session.settings.flush().catch(() => {});
+		}
+
+		if (this.#relayServer) {
+			this.#relayServer.broadcast({
+				type: "model_update",
+				userName: this.#userName,
+				role: cleanRole,
+				model: cleanModel,
+			});
+		}
+
+		return true;
+	}
+
+	getRoleModel(role: string): string {
+		const cleanRole = role.toLowerCase().trim();
+		if (cleanRole === "king" || cleanRole === "queen" || cleanRole === "worker" || cleanRole === "testgen" || cleanRole === "tester") {
+			return this.#modelConfig.getModelForRole(cleanRole as AgentRole, this.#userName);
+		}
+		return "unknown";
 	}
 
 	#initAgents(): void {
@@ -220,6 +395,14 @@ export class AgentcordBridge {
 				chatRoom: this.#chatRoom,
 				modelManager: this.#modelConfig,
 				memoryStore: this.#memoryStore,
+				onModelUpdate: (role, model, user) => {
+					if (!user || user === this.#userName) {
+						if (this.#session) {
+							this.#session.settings.setModelRole(role, model);
+							void this.#session.settings.flush().catch(() => {});
+						}
+					}
+				},
 			});
 			await this.#relayServer.start();
 			this.#guiUrl = `http://localhost:${targetPort}`;
@@ -242,6 +425,14 @@ export class AgentcordBridge {
 					chatRoom: this.#chatRoom,
 					modelManager: this.#modelConfig,
 					memoryStore: this.#memoryStore,
+					onModelUpdate: (role, model, user) => {
+						if (!user || user === this.#userName) {
+							if (this.#session) {
+								this.#session.settings.setModelRole(role, model);
+								void this.#session.settings.flush().catch(() => {});
+							}
+						}
+					},
 				});
 				await this.#relayServer.start();
 				this.#guiUrl = `http://localhost:${fallbackPort}`;
@@ -440,6 +631,8 @@ export class AgentcordBridge {
 	}
 
 	async stop(): Promise<void> {
+		this.#unsubscribeModelRoles?.();
+		this.#unsubscribeModelRoles = undefined;
 		if (this.#relayServer) {
 			await this.#relayServer.stop();
 			this.#relayServer = undefined;

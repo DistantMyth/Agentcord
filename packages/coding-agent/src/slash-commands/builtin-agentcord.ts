@@ -131,6 +131,42 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				return;
 			}
 
+			if (verb === "model") {
+				const parts = rest.trim().split(/\s+/).filter(Boolean);
+				if (parts.length === 0) {
+					const roles = ["king", "queen", "worker", "testgen", "tester"];
+					const lines = roles.map(r => `  • ${r.padEnd(8)}: ${bridge.getRoleModel(r)}`);
+					runtime.ctx.showStatus(
+						`Agentcord Role Models:\n${lines.join("\n")}\n\n` +
+							theme.fg("muted", "To change: /agentcord model <role> <modelId> or configure in /models (Roles tab)."),
+						{ dim: false }
+					);
+					return;
+				}
+				if (parts.length === 1) {
+					const role = parts[0]!;
+					const current = bridge.getRoleModel(role);
+					if (current === "unknown") {
+						runtime.ctx.showError(`Unknown role "${role}". Valid roles: king, queen, worker, testgen, tester.`);
+					} else {
+						runtime.ctx.showStatus(`Role [${role}] model: ${current}`, { dim: false });
+					}
+					return;
+				}
+				const role = parts[0]!;
+				const modelId = parts.slice(1).join(" ").trim();
+				const updated = bridge.updateRoleModel(role, modelId);
+				if (updated) {
+					runtime.ctx.showStatus(
+						theme.fg("success", `Updated [${role}] model to "${modelId}". Synced to omp settings and Helper GUI.`),
+						{ dim: false }
+					);
+				} else {
+					runtime.ctx.showError(`Failed to update model for role "${role}". Valid roles: king, queen, worker, testgen, tester.`);
+				}
+				return;
+			}
+
 			if (verb === "name") {
 				if (rest.trim()) {
 					bridge.setUserName(rest.trim());
@@ -141,7 +177,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				return;
 			}
 
-			runtime.ctx.showError(`Unknown subcommand "/agentcord ${verb}". Use /agentcord status|gui|connect|test|worker|assign|name.`);
+			runtime.ctx.showError(`Unknown subcommand "/agentcord ${verb}". Use /agentcord status|gui|connect|test|worker|assign|model|name.`);
 		},
 	},
 	{
