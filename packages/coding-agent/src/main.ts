@@ -284,16 +284,37 @@ function rejectNoUiWithoutRpc(args: Pick<Args, "noUi" | "mode">): void {
 
 /** Fail an interactive launch whose stdin is not a terminal: the TUI cannot run there. */
 function exitWithoutTerminal(): never {
-	process.stderr.write(
-		`${chalk.red("Error: interactive mode requires a terminal, but stdin is not a TTY.")}\n` +
-			`Pass a prompt (\`${APP_NAME} -p "…"\`), pipe one on stdin, or use \`--mode rpc\`.\n`,
-	);
+	const isGitBash = process.platform === "win32" && (Boolean(process.env.MSYSTEM) || process.env.TERM_PROGRAM === "mintty");
+	if (isGitBash) {
+		process.stderr.write(
+			`\n${chalk.red.bold("Error: Git Bash (Mintty) detected without a pseudo-console.")}\n` +
+				`Interactive full-screen TUI requires a native Windows console.\n\n` +
+				`${chalk.bold("To run in Git Bash, prepend winpty:")}\n` +
+				`  ${chalk.cyan("winpty bun dev")}\n\n` +
+				`${chalk.bold("Or use a native Windows terminal:")}\n` +
+				`  • ${chalk.green("PowerShell")}: bun dev\n` +
+				`  • ${chalk.green("Windows Terminal")}: bun dev\n` +
+				`  • ${chalk.green("Command Prompt (cmd)")}: bun dev\n\n` +
+				`${chalk.bold("Or run the dedicated Agentcord CLI hub:")}\n` +
+				`  ${chalk.cyan("bun run agentcord")}\n\n`,
+		);
+	} else {
+		process.stderr.write(
+			`${chalk.red("Error: interactive mode requires a terminal, but stdin is not a TTY.")}\n` +
+				`Pass a prompt (\`${APP_NAME} -p "…"\`), pipe one on stdin, or use \`--mode rpc\`.\n`,
+		);
+	}
 	process.exit(2);
 }
 
 /** Reads a non-TTY stdin stream as prompt text. */
 export async function readPipedInput(): Promise<string | undefined> {
 	if (process.stdin.isTTY === true) return undefined;
+	// In Git Bash / MSYS2 / Mintty on Windows, stdin is not a TTY to native Win32 binaries,
+	// but is an interactive pipe that never sends EOF. Avoid hanging indefinitely.
+	if (process.platform === "win32" && (Boolean(process.env.MSYSTEM) || process.env.TERM_PROGRAM === "mintty")) {
+		return undefined;
+	}
 	// stdin is a pipe: a producer that never writes nor closes would block
 	// startup forever with zero output. Say what we're blocked on after 1s.
 	const notice = isBunTestRuntime()
