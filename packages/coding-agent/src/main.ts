@@ -6,7 +6,6 @@
  */
 import * as fsSync from "node:fs";
 import * as os from "node:os";
-import * as readlinePromises from "node:readline/promises";
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core/thinking";
 import { EventLoopKeepalive } from "@oh-my-pi/pi-agent-core/utils/yield";
 import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
@@ -2727,31 +2726,14 @@ export async function runRootCommand(
 					process.env.PI_COLLAB_NAME ||
 					cfgCollabDisplayName.get(settingsInstance).trim();
 
-				if (!userName && process.stdin.isTTY && !initialArgs.print && !initialArgs.noUi) {
-					stopPendingStartupComposer();
-					process.stdout.write(
-						`\n${chalk.bold.cyan("🤖 Welcome to Agentcord (oh-my-pi)!")}\n` +
-							`${chalk.dim("Multi-user collaborative AI agent network with King/Queen hierarchy & helper GUI.")}\n\n` +
-							`${chalk.bold("What is your name? ")}`,
-					);
+				if (!userName) {
 					try {
-						const rl = readlinePromises.createInterface({ input: process.stdin, output: process.stdout });
-						const answer = await rl.question("");
-						rl.close();
-						process.stdin.resume();
-						userName = answer.trim() || os.userInfo().username || "User";
-						cfgCollabDisplayName.set(settingsInstance, userName);
-						await settingsInstance.flush();
-						process.stdout.write(`${chalk.green(`Nice to meet you, ${userName}!`)}\n\n`);
+						userName = os.userInfo().username?.trim() || "Developer";
 					} catch {
-						userName = os.userInfo().username || "User";
+						userName = "Developer";
 					}
-				} else if (!userName) {
-					try {
-						userName = os.userInfo().username || "User";
-					} catch {
-						userName = "User";
-					}
+					cfgCollabDisplayName.set(settingsInstance, userName);
+					void settingsInstance.flush().catch(() => {});
 				}
 
 				const agentcordBridge = new AgentcordBridge({
