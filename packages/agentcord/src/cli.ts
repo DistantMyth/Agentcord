@@ -201,6 +201,13 @@ export async function main() {
 	console.log("  /exit               - Quit");
 	console.log("========================================================\n");
 
+	if (args.daemon || args["serve-only"] || !process.stdin.isTTY) {
+		console.log("Running in daemon mode. Press Ctrl+C or kill task to stop.");
+		// Keep alive
+		await new Promise(() => {});
+		return;
+	}
+
 	// Interactive CLI loop
 	while (true) {
 		const line = await prompt(rl, `[${userName}] >`);
@@ -222,6 +229,49 @@ export async function main() {
 				console.log(`  Responsibility: ${a.responsibility}`);
 			}
 			console.log("---------------------------------------------\n");
+			continue;
+		}
+
+		if (trimmed === "/models" || trimmed === "/model" || trimmed.startsWith("/model ")) {
+			const sub = trimmed.slice(6).trim();
+			if (sub) {
+				const parts = sub.split(" ");
+				if (parts.length >= 2) {
+					const role = parts[0]!.toLowerCase();
+					const modelName = parts[1]!;
+					modelManager.setUserModels(userName, {
+						[`${role}Model`]: modelName,
+					} as any);
+					console.log(`\nUpdated model for ${role} to: ${modelName}\n`);
+					continue;
+				}
+			}
+
+			const userModels = modelManager.getUserModels(userName);
+			console.log("\n--- AGENTCORD CONFIGURED MODELS ---");
+			console.log(`• King Agent:    ${userModels.kingModel}`);
+			console.log(`• Queen Agent:   ${userModels.queenModel}`);
+			console.log(`• Worker Agent:  ${userModels.workerModel}`);
+			console.log(`• TestGen Agent: ${userModels.testgenModel}`);
+			console.log(`• Tester Agent:  ${userModels.testerModel}`);
+			console.log("\nAvailable Catalog Models:");
+			for (const m of modelManager.getAvailableModels()) {
+				console.log(`  - ${m.id.padEnd(24)} [${m.provider}] - ${m.name}`);
+			}
+			console.log("\nUsage to change: /model <role> <modelId> (e.g., /model queen gpt-4o)");
+			console.log("Tip: Launch `bun dev` to use omp's native interactive fuzzy-search /models picker.\n");
+			continue;
+		}
+
+		if (trimmed === "/login" || trimmed.startsWith("/login ")) {
+			console.log("\n--- AGENTCORD AUTHENTICATION & LOGIN ---");
+			console.log("Environment API keys currently detected:");
+			console.log(`• ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "CONFIGURED" : "NOT SET"}`);
+			console.log(`• OPENAI_API_KEY:    ${process.env.OPENAI_API_KEY ? "CONFIGURED" : "NOT SET"}`);
+			console.log(`• GEMINI_API_KEY:    ${process.env.GEMINI_API_KEY ? "CONFIGURED" : "NOT SET"}`);
+			console.log(`• OLLAMA_HOST:       ${process.env.OLLAMA_HOST || "http://localhost:11434"}`);
+			console.log("\nTo authenticate via interactive OAuth login dialog:");
+			console.log("Run `bun dev` (native omp) and type `/login` to authenticate with Anthropic, OpenAI, or Google.\n");
 			continue;
 		}
 

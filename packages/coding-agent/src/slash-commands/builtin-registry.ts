@@ -2,6 +2,7 @@ import { clearSubmittedText } from "./helpers/draft";
 import type { AutocompleteItem } from "@oh-my-pi/pi-tui";
 import { COLLAB_GUEST_ALLOWED_COMMANDS } from "../collab/guest";
 import { BUILTIN_COLLABORATION_SLASH_COMMANDS } from "./builtin-collaboration";
+import { BUILTIN_AGENTCORD_SLASH_COMMANDS } from "./builtin-agentcord";
 import {
 	buildArgumentCompletions,
 	buildDirectoryArgumentCompletions,
@@ -42,6 +43,7 @@ export interface TuiBuiltinSlashCommand extends BuiltinSlashCommand {
 const BUILTIN_SLASH_COMMAND_REGISTRY: ReadonlyArray<SlashCommandSpec> = [
 	...BUILTIN_MODE_SLASH_COMMANDS,
 	...BUILTIN_COLLABORATION_SLASH_COMMANDS,
+	...BUILTIN_AGENTCORD_SLASH_COMMANDS,
 	...BUILTIN_SESSION_SLASH_COMMANDS,
 	...BUILTIN_LIFECYCLE_SLASH_COMMANDS,
 	...BUILTIN_MARKETPLACE_SLASH_COMMANDS,

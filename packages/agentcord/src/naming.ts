@@ -36,6 +36,26 @@ export function formatUserName(userName: string): string {
 	return `[User: ${userName.trim()}]`;
 }
 
+export function formatKingName(userName: string): string {
+	return formatAgentName("king", userName);
+}
+
+export function formatQueenName(userName: string): string {
+	return formatAgentName("queen", userName);
+}
+
+export function formatWorkerName(userName: string, workerName?: string): string {
+	return formatAgentName("worker", userName, workerName);
+}
+
+export function formatTestGenName(userName: string): string {
+	return formatAgentName("testgen", userName);
+}
+
+export function formatTesterName(userName: string): string {
+	return formatAgentName("tester", userName);
+}
+
 export interface ParsedName {
 	type: "agent" | "user" | "unknown";
 	role?: AgentRole;

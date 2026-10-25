@@ -6,6 +6,7 @@
  */
 import * as fsSync from "node:fs";
 import * as os from "node:os";
+import * as readlinePromises from "node:readline/promises";
 import type { ThinkingLevel } from "@oh-my-pi/pi-agent-core/thinking";
 import { EventLoopKeepalive } from "@oh-my-pi/pi-agent-core/utils/yield";
 import type { ImageContent, Model } from "@oh-my-pi/pi-ai";
@@ -62,6 +63,8 @@ import { ModelsConfigFile } from "./config/models-config";
 import { serviceTierSettingToTier } from "./config/service-tier";
 import { all, combine, type ProtocolHost, type SettingValueOf } from "./config/registry";
 import { Settings, settings } from "./config/settings";
+import { cfgCollabDisplayName } from "./collab/settings";
+import { AgentcordBridge, setActiveAgentcordBridge } from "./agentcord/bridge";
 import { initializeWithSettings } from "./discovery";
 import {
 	clearPluginRootsAndCaches,
@@ -2697,6 +2700,55 @@ export async function runRootCommand(
 						process.exit(0);
 					}
 				}
+				let userName =
+					initialArgs.name?.trim() ||
+					process.env.AGENTCORD_NAME ||
+					process.env.PI_COLLAB_NAME ||
+					cfgCollabDisplayName.get(settingsInstance).trim();
+
+				if (!userName && process.stdin.isTTY && !initialArgs.print && !initialArgs.noUi) {
+					stopPendingStartupComposer();
+					process.stdout.write(
+						`\n${chalk.bold.cyan("🤖 Welcome to Agentcord (oh-my-pi)!")}\n` +
+							`${chalk.dim("Multi-user collaborative AI agent network with King/Queen hierarchy & helper GUI.")}\n\n` +
+							`${chalk.bold("What is your name? ")}`,
+					);
+					try {
+						const rl = readlinePromises.createInterface({ input: process.stdin, output: process.stdout });
+						const answer = await rl.question("");
+						rl.close();
+						userName = answer.trim() || os.userInfo().username || "User";
+						cfgCollabDisplayName.set(settingsInstance, userName);
+						await settingsInstance.flush();
+						process.stdout.write(`${chalk.green(`Nice to meet you, ${userName}!`)}\n\n`);
+					} catch {
+						userName = os.userInfo().username || "User";
+					}
+				} else if (!userName) {
+					try {
+						userName = os.userInfo().username || "User";
+					} catch {
+						userName = "User";
+					}
+				}
+
+				const agentcordBridge = new AgentcordBridge({
+					userName,
+					isKing: true,
+					session,
+				});
+				setActiveAgentcordBridge(agentcordBridge);
+
+				try {
+					const guiUrl = await agentcordBridge.start();
+					notifs.push({
+						kind: "info",
+						message: `Agentcord live at ${guiUrl} | Agents: [Queen: ${userName}], [TestGen], [Tester] | /agentcord for options`,
+					});
+				} catch (error) {
+					logger.warn("Failed to start Agentcord helper GUI", { error: String(error) });
+				}
+
 				const startupLease = takeStartupComposerLease();
 				try {
 					stopStartupWatchdog();

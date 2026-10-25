@@ -178,6 +178,57 @@ export class ChatRoom {
 		return () => this.messageListeners.delete(listener);
 	}
 
+	onMessage(listener: ChatListener): () => void {
+		return this.subscribeMessages(listener);
+	}
+
+	postMessage(sender: string, content: string, kind: MessageType = "gc", recipient?: string): ChatMessage {
+		const parsed = parseFormattedName(sender);
+		const fromUser = parsed.userName || sender;
+		const message: ChatMessage = {
+			id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+			type: kind,
+			from: sender,
+			fromUser,
+			to: recipient,
+			text: content,
+			timestamp: Date.now(),
+		};
+		this.messages.push(message);
+		this.notifyMessage(message);
+		return message;
+	}
+
+	getContextForAgent(agentNameOrId: string, roleOrName?: string): string {
+		let name = agentNameOrId;
+		let role = roleOrName || "queen";
+		if (agentNameOrId.startsWith("[")) {
+			name = agentNameOrId;
+		} else if (roleOrName && roleOrName.startsWith("[")) {
+			name = roleOrName;
+			role = agentNameOrId;
+		}
+		const relevant = ContextFilter.filterForAgent(name, role, this.messages);
+		return ContextFilter.formatContextTranscript(relevant);
+	}
+
+	getResponsibilityMatrix() {
+		return this.registry.getResponsibilityMatrix();
+	}
+
+	updateResponsibility(
+		agentId: string,
+		_agentName: string,
+		_role: string,
+		responsibility: string,
+		status?: any
+	): void {
+		this.registry.updateResponsibility(agentId, responsibility);
+		if (status) {
+			this.registry.updateStatus(agentId, status);
+		}
+	}
+
 	subscribeQuestions(listener: QuestionListener): () => void {
 		this.questionListeners.add(listener);
 		return () => this.questionListeners.delete(listener);

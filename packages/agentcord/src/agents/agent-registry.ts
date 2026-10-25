@@ -14,6 +14,18 @@ export class AgentRegistry {
 		this.notify();
 	}
 
+	register(agent: BaseAgent): void {
+		this.registerAgent(agent);
+	}
+
+	get(agentId: string): BaseAgent | undefined {
+		return this.getAgent(agentId);
+	}
+
+	getAll(): BaseAgent[] {
+		return Array.from(this.agents.values());
+	}
+
 	unregisterAgent(agentId: string): void {
 		if (this.agents.delete(agentId)) {
 			this.notify();
@@ -85,6 +97,17 @@ export class AgentRegistry {
 
 	getSnapshots(): AgentInfo[] {
 		return Array.from(this.agents.values()).map(a => a.getSnapshot());
+	}
+
+	getResponsibilityMatrix(): ResponsibilityMatrixEntry[] {
+		return Array.from(this.agents.values()).map(a => ({
+			agentId: a.id,
+			agentName: a.name,
+			role: a.role,
+			responsibility: a.responsibility,
+			status: a.status,
+			updatedAt: a.lastActiveAt,
+		}));
 	}
 
 	subscribe(listener: RegistryListener): () => void {

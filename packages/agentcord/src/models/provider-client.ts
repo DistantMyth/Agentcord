@@ -8,9 +8,25 @@ export interface GenerateOptions {
 	temperature?: number;
 }
 
+export type LLMCompletionHandler = (
+	model: string,
+	systemPrompt: string,
+	userMessage: string
+) => Promise<string | null | undefined>;
+
 export class AgentProviderClient {
+	#customHandler?: LLMCompletionHandler;
+
+	constructor(customHandler?: LLMCompletionHandler) {
+		this.#customHandler = customHandler;
+	}
+
+	setCompletionHandler(handler: LLMCompletionHandler): void {
+		this.#customHandler = handler;
+	}
+
 	/**
-	 * Dispatches prompt to the appropriate model provider or intelligent simulator.
+	 * Dispatches prompt to the active omp LLM provider or intelligent simulator.
 	 */
 	async generate(
 		model: string,
@@ -20,55 +36,20 @@ export class AgentProviderClient {
 	): Promise<string> {
 		const isSim = model.startsWith("mock-") || model.includes("sim");
 
-		// If real API key is set for specific provider, we can invoke it, otherwise fallback gracefully to simulator
-		if (!isSim && this.hasApiKeyFor(model)) {
+		if (!isSim && this.#customHandler) {
 			try {
-				return await this.callExternalProvider(model, systemPrompt, userMessage);
+				const response = await this.#customHandler(model, systemPrompt, userMessage);
+				if (response) return response;
 			} catch (err) {
-				console.warn(`External API call to ${model} failed, falling back to simulator:`, err);
+				console.warn(`[Agentcord] Provider execution for ${model} failed, falling back to simulator:`, err);
 			}
 		}
 
 		return this.generateSimulatedResponse(model, systemPrompt, userMessage, options);
 	}
 
-	private hasApiKeyFor(model: string): boolean {
-		if (model.includes("gemini")) return !!process.env.GEMINI_API_KEY;
-		if (model.includes("claude")) return !!process.env.ANTHROPIC_API_KEY;
-		if (model.includes("gpt")) return !!process.env.OPENAI_API_KEY;
-		return false;
-	}
-
-	private async callExternalProvider(
-		model: string,
-		systemPrompt: string,
-		userMessage: string
-	): Promise<string> {
-		// Example direct call to Gemini or OpenAI if configured in environment
-		if (model.includes("gemini") && process.env.GEMINI_API_KEY) {
-			const res = await fetch(
-				`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						contents: [
-							{ role: "user", parts: [{ text: `${systemPrompt}\n\nUser Question: ${userMessage}` }] },
-						],
-					}),
-				}
-			);
-			if (res.ok) {
-				const data = (await res.json()) as any;
-				const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-				if (text) return text;
-			}
-		}
-		throw new Error(`External provider call not available for model ${model}`);
-	}
-
 	/**
-	 * Intelligent role-specific response generator for offline and demo mode.
+	 * Intelligent role-specific response generator for offline, test, and demo modes.
 	 */
 	private generateSimulatedResponse(
 		model: string,

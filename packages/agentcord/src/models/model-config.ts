@@ -101,6 +101,24 @@ export class ModelConfigManager {
 		this.agentSpecific.set(agentId, model);
 	}
 
+	getModelForRole(role: AgentRole, user: string): string {
+		const userModels = this.getUserModels(user);
+		switch (role) {
+			case "king":
+				return userModels.kingModel;
+			case "queen":
+				return userModels.queenModel;
+			case "worker":
+				return userModels.workerModel;
+			case "testgen":
+				return userModels.testgenModel;
+			case "tester":
+				return userModels.testerModel;
+			default:
+				return userModels.workerModel;
+		}
+	}
+
 	getAgentModel(agentId: string, role: AgentRole, user: string): string {
 		const specific = this.agentSpecific.get(agentId);
 		if (specific) return specific;
