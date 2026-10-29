@@ -1,4 +1,4 @@
-import type { AgentInfo, AgentRole, AgentStatus } from "../types";
+import type { AgentInfo, AgentRole, AgentStatus, ResponsibilityMatrixEntry } from "../types";
 import type { BaseAgent } from "./base-agent";
 import type { KingAgent } from "./king-agent";
 import type { QueenAgent } from "./queen-agent";

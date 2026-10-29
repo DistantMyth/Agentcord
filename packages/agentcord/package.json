@@ -10,11 +10,17 @@
   },
   "scripts": {
     "start": "bun src/cli.ts",
-    "gui": "bun src/cli.ts --gui",
-    "relay": "bun src/cli.ts --relay-only",
-    "test": "bun test"
+    "gui": "bun src/cli.ts --host",
+    "relay": "bun src/cli.ts --host",
+    "test": "bun test",
+    "check": "bun run check:types && oxlint src/swarm src/cli.ts && oxfmt --check src/swarm/**/*.ts src/cli.ts test/swarm*.ts",
+    "check:types": "tsgo -p tsconfig.json --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@oh-my-pi/pi-agent-core": "catalog:",
+    "@oh-my-pi/pi-natives": "catalog:",
+    "@oh-my-pi/pi-utils": "catalog:"
+  },
   "devDependencies": {
     "@types/bun": "catalog:"
   }

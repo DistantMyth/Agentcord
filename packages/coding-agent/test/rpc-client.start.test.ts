@@ -3,6 +3,33 @@ import * as path from "node:path";
 import { type RpcAgentProcess, RpcClient } from "@oh-my-pi/pi-coding-agent/modes/rpc/rpc-client";
 
 describe("RpcClient.start", () => {
+	test("a configured startup timeout reaps an agent that never becomes ready", async () => {
+		const exited = Promise.withResolvers<number>();
+		let killed = false;
+		let output: ReadableStreamDefaultController<Uint8Array>;
+		const process: RpcAgentProcess = {
+			stdin: { write() {} },
+			stdout: new ReadableStream<Uint8Array>({
+				start(controller) {
+					output = controller;
+				},
+			}),
+			peekStderr: () => "waiting on initialization",
+			kill: () => {
+				killed = true;
+				exited.resolve(1);
+				try {
+					output.close();
+				} catch {
+					/* Reader cancellation may already have closed stdout. */
+				}
+			},
+			exited: exited.promise,
+		};
+		using client = new RpcClient({ spawn: () => process, startupTimeoutMs: 5 });
+		await expect(client.start()).rejects.toThrow("Timeout waiting for agent to become ready");
+		expect(killed).toBe(true);
+	});
 	test("rejects when RPC process exits immediately", async () => {
 		using client = new RpcClient({
 			cliPath: path.join(import.meta.dir, "..", "src", "cli.ts"),

@@ -19,6 +19,9 @@ export class TesterAgent extends BaseAgent {
 		testCases: TestCase[],
 		stepNumber: number
 	): Promise<TestRunResult[]> {
+		if (this.model !== "mock-sim-pro" && this.model !== "mock-sim-fast") {
+			throw new Error("Legacy text-only testing cannot verify code. Use the Agentcord swarm tester to execute real commands.");
+		}
 		this.setStatus("testing");
 		const results: TestRunResult[] = [];
 

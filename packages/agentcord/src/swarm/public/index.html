@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>Agentcord · Shared swarm</title>
+		<link rel="stylesheet" href="/style.css" />
+	</head>
+	<body>
+		<div id="notice" role="status" hidden></div>
+		<dialog id="joinDialog">
+			<form id="joinForm">
+				<div class="eyebrow">WELCOME TO THE SWARM</div>
+				<h1>Build together.</h1>
+				<p>Join your team. Your agents run on your machine, with your models and credentials.</p>
+				<label
+					>Your name<input
+						id="joinName"
+						required
+						maxlength="60"
+						autocomplete="nickname"
+						placeholder="e.g. Anuj" /></label
+				><label>Invite token or full invite link<input id="inviteInput" required autocomplete="off" /></label
+				><button class="primary" type="submit">Join room →</button>
+				<p class="muted">Already a member? Open your private member link or paste its token below.</p>
+				<label>Member token<input id="existingToken" autocomplete="off" /></label
+				><button type="button" id="reconnectToken">Reconnect</button>
+			</form>
+		</dialog>
+		<header>
+			<a class="brand" href="/">◈ <strong>agentcord</strong><span>SHARED SWARM</span></a>
+			<div class="header-right">
+				<span id="connection" class="pill">Connecting</span><span id="identity"></span
+				><button id="runnerButton">Connect my runner</button><button id="inviteButton" hidden>Share invite ↗</button
+				><button id="settingsButton">My roles</button>
+			</div>
+		</header>
+		<main>
+			<aside>
+				<div class="section-title">
+					<h2>Your swarm</h2>
+					<span id="agentCount" class="muted"></span>
+				</div>
+				<p class="muted small">One king. Everyone's capacity.</p>
+				<div id="roster"></div>
+				<div class="aside-bottom">
+					<span class="dot"></span> OMP runtime · local credentials<br /><span class="muted"
+						>All executions are real. Failed work stays recoverable.</span
+					>
+				</div>
+			</aside>
+			<section class="workspace">
+				<div class="intro">
+					<div>
+						<div class="eyebrow">COLLECTIVE INTELLIGENCE, ONE WORKSPACE</div>
+						<h1>Mission control<span>.</span></h1>
+						<p>Give the king a goal. Follow every delegation, command, and result.</p>
+					</div>
+					<button id="attachButton" hidden>＋ Add project</button>
+				</div>
+				<div id="emptyProjects" class="empty" hidden>
+					<h2>Connect your first repository</h2>
+					<p>
+						The host attaches a local Git checkout with a shared remote. Agentcord publishes a separate
+						integration branch for this project.
+					</p>
+				</div>
+				<section class="project-bar">
+					<label>PROJECT<select id="projectSelect" aria-label="Active project"></select></label>
+					<div>
+						<span id="repoStatus" class="pill"></span
+						><a id="branchLink" class="muted small" target="_blank" rel="noreferrer"></a
+						><code id="revision"></code><button id="reconcileButton" hidden>Reconcile & resume</button>
+					</div>
+				</section>
+				<p id="projectError" class="task-error" hidden></p>
+				<form id="taskForm" class="goal-form">
+					<textarea id="goal" required placeholder="What should the swarm build or fix?" rows="2"></textarea>
+					<div class="goal-controls">
+						<select id="assignee" aria-label="Assign task to agent"></select
+						><input
+							id="scope"
+							placeholder="Paths, comma separated (blank = repository)"
+							aria-label="Task path scope"
+						/><button class="primary" type="submit">Assign task →</button>
+					</div>
+				</form>
+				<div class="section-title task-heading">
+					<h2>Task board <span id="taskCount" class="muted"></span></h2>
+					<span class="muted small">Disjoint paths run in parallel · overlapping paths queue</span>
+				</div>
+				<div id="tasks" class="task-grid"></div>
+				<section class="activity">
+					<div class="section-title">
+						<h2>Shared activity</h2>
+						<div>
+							<select id="activityAgent" aria-label="Filter activity by agent">
+								<option value="">All agents</option></select
+							><button id="historyButton">Load history</button><button id="exportButton">Export journal</button>
+						</div>
+					</div>
+					<div id="activityLog" aria-live="polite"></div>
+					<form id="messageForm">
+						<select id="messageTo" aria-label="Message recipient">
+							<option value="">Room chat</option></select
+						><input
+							id="messageText"
+							placeholder="Message the team or a running agent…"
+							required
+							maxlength="10000"
+						/><button type="submit">Send ↗</button>
+					</form>
+					<p class="muted small">
+						Room chat is visible to everyone. Only addressed messages enter an active agent's context. Assign a
+						task for an idle agent to work.
+					</p>
+				</section>
+			</section>
+		</main>
+		<dialog id="settingsDialog">
+			<form id="settingsForm">
+				<div class="dialog-heading">
+					<div>
+						<div class="eyebrow">YOUR CAPACITY</div>
+						<h2>Roles & models</h2>
+					</div>
+					<button type="button" data-close="settingsDialog">✕</button>
+				</div>
+				<p>
+					Choose each role's model independently. Disable roles you don't want to contribute. Workers without a
+					queen are shared among the other queens.
+				</p>
+				<div id="roleFields"></div>
+				<p class="muted small">
+					Use an OMP provider/model ID or “default” for your local OMP selection. Your provider credentials stay on
+					your machine. Changes apply to future tasks and are saved for this room.
+				</p>
+				<button class="primary" type="submit">Save my roles</button>
+			</form>
+		</dialog>
+		<dialog id="projectDialog">
+			<form id="projectForm">
+				<div class="dialog-heading">
+					<h2>Attach a project</h2>
+					<button type="button" data-close="projectDialog">✕</button>
+				</div>
+				<p>
+					Provide a checkout on the host machine. Every member needs read and push access to its shared Git remote.
+				</p>
+				<label>Project name<input id="projectName" required maxlength="100" /></label
+				><label
+					>Checkout directory on host<input
+						id="projectDirectory"
+						required
+						placeholder="C:\projects\my-app or /home/me/my-app"
+				/></label>
+				<div class="two-col">
+					<label>Committed base revision<input id="projectBase" value="HEAD" required /></label
+					><label>Git remote<input id="projectRemote" value="origin" required /></label>
+				</div>
+				<p class="muted small">
+					Agentcord publishes an isolated integration branch from the selected committed revision. Uncommitted
+					source files are not copied.
+				</p>
+				<button type="submit" class="primary">Attach & publish integration branch</button>
+			</form>
+		</dialog>
+		<dialog id="runnerDialog">
+			<div class="dialog-heading">
+				<h2>Run your agents</h2>
+				<button type="button" data-close="runnerDialog">✕</button>
+			</div>
+			<p>
+				On your machine, install this fork's dependencies and configure OMP providers. Then run this command from
+				the fork checkout:
+			</p>
+			<pre id="runnerCommand"></pre>
+			<button id="copyRunner">Copy private command</button>
+			<p class="muted small">
+				This command contains your private member token. Keep it private. Leave the runner active to contribute your
+				enabled roles.
+			</p>
+		</dialog>
+		<dialog id="copyDialog">
+			<div class="dialog-heading">
+				<h2>Copy link or command</h2>
+				<button type="button" data-close="copyDialog">✕</button>
+			</div>
+			<p>Your browser does not allow automatic clipboard access here. Select and copy this text.</p>
+			<textarea id="copyValue" readonly rows="4" aria-label="Text to copy"></textarea>
+		</dialog>
+		<script src="/app.js" defer></script>
+	</body>
+</html>

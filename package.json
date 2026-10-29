@@ -71,6 +71,7 @@
 	"type": "module",
 	"scripts": {
 		"agentcord": "bun packages/agentcord/src/cli.ts",
+		"agentcord:setup": "bun scripts/setup-agentcord.ts",
 		"agentcord:test": "bun test packages/agentcord",
 		"setup": "bun scripts/setup.ts",
 		"dev": "bun --cwd=packages/coding-agent src/cli.ts",

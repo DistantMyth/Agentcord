@@ -153,7 +153,7 @@ export class AgentcordRelayServer {
 		});
 
 		const actualPort = this.server.port;
-		const displayUrl = `http://localhost:${actualPort}`;
+		const displayUrl = `http://127.0.0.1:${actualPort}`;
 		return {
 			url: displayUrl,
 			port: actualPort,
