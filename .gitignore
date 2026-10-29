@@ -95,3 +95,8 @@ packages/coding-agent/bench/boot-baseline.json
 /.bazelrc.user
 
 .parity/
+
+# Agentcord local credentials, durable journal, native setup scratch and isolated workspaces
+.agentcord/
+.agentcord-native/
+.agentcord-native.tgz

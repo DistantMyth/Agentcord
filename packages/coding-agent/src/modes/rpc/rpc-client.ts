@@ -73,6 +73,8 @@ export interface RpcAgentProcess {
 }
 
 export interface RpcClientOptions {
+	/** Time allowed for the agent's ready handshake (default: 30000ms). */
+	startupTimeoutMs?: number;
 	/** Path to the CLI entry point (default: `dist/cli.js`). */
 	cliPath?: string;
 	/**
@@ -499,7 +501,7 @@ export class RpcClient {
 		);
 
 		// Timeout to prevent hanging forever
-		const readyTimeout = this.#startTimeout(30000, () => {
+		const readyTimeout = this.#startTimeout(this.options.startupTimeoutMs ?? 30000, () => {
 			if (readySettled) return;
 			readySettled = true;
 			readyReject(new Error(`Timeout waiting for agent to become ready. Stderr: ${child.peekStderr()}`));

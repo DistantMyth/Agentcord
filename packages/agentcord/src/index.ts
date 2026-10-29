@@ -7,3 +7,4 @@ export * from "./chat";
 export * from "./prompts";
 export * from "./network";
 export * from "./gui";
+export * from "./swarm";

@@ -1,6 +1,6 @@
 <p align="center">
   <strong>Agentcord: Multi-User Collaborative Agent Network</strong><br>
-  <em>Fork of oh-my-pi with King/Queen/Worker hierarchy, preserved memory, and live responsibility chatroom</em>
+  <em>Fork of oh-my-pi with optional per-user roles, shared orchestration, isolated Git workspaces, and a live GUI</em>
 </p>
 
 <p align="center">
@@ -43,35 +43,25 @@ The most capable agent surface that ships. Continuously tuned by real-world use 
 
 ## Agentcord Quick Start
 
-Agentcord allows multiple people over the internet or LAN to connect with each other, orchestrating hierarchical AI agent teams with live responsibility tracking and preserved memory.
+Agentcord runs real tool-enabled OMP sessions across multiple people's machines, with one persistent hub coordinating the swarm.
 
-### Features
-* **Asks User Name**: Prompts for user identity on connect/launch.
-* **Hierarchical Agents**:
-  * Host commands the **King Agent** (`[King: <UserName>]`) master orchestrator.
-  * Every user commands their **Queen Agent** (`[Queen: <UserName>]`).
-  * Queens spawn and command **Worker Agents** (`[Worker: <UserName> - <WorkerName>]`).
-  * Queens automatically spin up a **Testcase Generator** (`[TestGen: <UserName>]`) and **Step Tester** (`[Tester: <UserName>]`).
-* **Inter-Agent Q&A Hierarchy**:
-  * Any Worker Agent can ask questions to **any** Queen agent across the network.
-  * Any Queen Agent can ask questions to the **King Agent**.
-* **Preserved Memory**:
-  * Working memory, facts, decisions, Q&A history, and step test results are saved to `.agentcord/memory/`.
-* **Context Shield (GC vs. DM)**:
-  * Chat messages are not dumped over all agents. Group Chat messages do not saturate agent contexts unless @mentioned. Direct Messages are routed specifically to target agents.
-* **Model Flexibility**:
-  * Users can configure King, Queen, Workers, TestGen, and Tester agents to different models (Gemini, Claude, GPT, Ollama, Simulator).
-* **Helper GUI**:
-  * Full real-time web UI with Setup, Live Responsibility Matrix, GC/DM chat, Model configurator, and Step Tester runner.
+- One host owns the king. Members independently configure models and enable or disable queen, worker, test generation, and tester roles.
+- Helpers without a queen are shared among the other online queens while keeping their owner's models and credentials.
+- Scoped tasks, dependencies, isolated Git branches, and serialized integration prevent shared-checkout collisions. Failed work stays recoverable.
+- The GUI shows every task, conversation, command, and result. Role settings and the ordered activity journal survive restarts.
+- Model and command errors stay errors; production execution never falls back to a simulator.
 
-### Running Agentcord
-```bash
-# Launch interactive CLI / GUI host
-bun run agentcord
-
-# Run tests
-bun run agentcord:test
+```sh
+git clone https://github.com/anujparwal/Agentcord.git
+cd Agentcord
+bun run agentcord:setup
+# Configure your own OMP providers with bun dev → /login or /models.
+bun run agentcord --host --name Alice --repo /path/to/project --bind 0.0.0.0
 ```
+
+Open the private owner link printed by the CLI and use **Share invite** for collaborators. Each member joins in their browser and copies **Connect my runner** to their own machine. All runners need read/push access to the shared Git remote. Internet use requires a reachable private network or an HTTPS/WSS reverse proxy.
+
+See the [Agentcord guide](packages/agentcord/README.md) for Windows commands, optional roles, networking, Git integration, recovery, and the test suite. The upstream OMP documentation follows below.
 
 ## Install
 

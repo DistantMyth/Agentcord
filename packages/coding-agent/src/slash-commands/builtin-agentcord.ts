@@ -1,5 +1,5 @@
 import { clearSubmittedText } from "./helpers/draft";
-import { commandConsumed, errorMessage, parseSubcommand, usage } from "./helpers/parse";
+import { errorMessage, parseSubcommand } from "./helpers/parse";
 import type { SlashCommandSpec } from "./types";
 import { getActiveAgentcordBridge } from "../agentcord/bridge";
 import { theme } from "@oh-my-pi/pi-tui/theme";
@@ -51,7 +51,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				runtime.ctx.showStatus(
 					`Agentcord Helper GUI: ${bridge.guiUrl}\n` +
 						theme.fg("muted", "Open in browser to see live matrix, chatroom (GC/DM), and test runner."),
-					{ dim: false }
+					{ dim: false },
 				);
 				try {
 					runtime.ctx.openInBrowser?.(bridge.guiUrl);
@@ -69,7 +69,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				if (ok) {
 					runtime.ctx.showStatus(
 						theme.fg("success", `Connected to Agentcord relay! Synced Queen & helper agents.`),
-						{ dim: false }
+						{ dim: false },
 					);
 				} else {
 					runtime.ctx.showError(`Failed to connect to Agentcord relay at ${rest.trim()}`);
@@ -86,7 +86,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 						theme.fg(statusColor, `Step Test Verification ${result.passed ? "PASSED" : "FAILED"}:`),
 						`Generated Testcases (${testcases.length}):`,
 						...testcases.map(t => `  • ${t}`),
-						`Tester Output: ${result.diagnostics}`,
+						`Tester Output: ${result.output}`,
 					].join("\n");
 					runtime.ctx.showStatus(report, { dim: false });
 				} catch (err) {
@@ -103,10 +103,10 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				}
 				const specialty = parts[0];
 				const responsibility = parts.slice(1).join(" ");
-				const worker = bridge.createWorker(specialty, responsibility);
+				const worker = await bridge.createWorker(specialty!, responsibility);
 				runtime.ctx.showStatus(
 					theme.fg("success", `Created worker agent ${worker.name} for task: "${responsibility}"`),
-					{ dim: false }
+					{ dim: false },
 				);
 				return;
 			}
@@ -119,14 +119,15 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				}
 				const target = parts[0]!;
 				const newResp = parts.slice(1).join(" ");
-				const assigned = bridge.assignResponsibility("user", target, newResp);
+				const assigned = await bridge.assignResponsibility("user", target!, newResp);
 				if (assigned) {
-					runtime.ctx.showStatus(
-						theme.fg("success", `Updated responsibility for [${target}] to: "${newResp}"`),
-						{ dim: false }
-					);
+					runtime.ctx.showStatus(theme.fg("success", `Updated responsibility for [${target}] to: "${newResp}"`), {
+						dim: false,
+					});
 				} else {
-					runtime.ctx.showError(`Failed to assign responsibility to [${target}]. Ensure target exists and matches hierarchy rules.`);
+					runtime.ctx.showError(
+						`Failed to assign responsibility to [${target}]. Ensure target exists and matches hierarchy rules.`,
+					);
 				}
 				return;
 			}
@@ -138,8 +139,11 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 					const lines = roles.map(r => `  • ${r.padEnd(8)}: ${bridge.getRoleModel(r)}`);
 					runtime.ctx.showStatus(
 						`Agentcord Role Models:\n${lines.join("\n")}\n\n` +
-							theme.fg("muted", "To change: /agentcord model <role> <modelId> or configure in /models (Roles tab)."),
-						{ dim: false }
+							theme.fg(
+								"muted",
+								"To change: /agentcord model <role> <provider/model> or use My roles in the swarm GUI.",
+							),
+						{ dim: false },
 					);
 					return;
 				}
@@ -155,14 +159,16 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				}
 				const role = parts[0]!;
 				const modelId = parts.slice(1).join(" ").trim();
-				const updated = bridge.updateRoleModel(role, modelId);
+				const updated = await bridge.updateRoleModel(role, modelId);
 				if (updated) {
 					runtime.ctx.showStatus(
-						theme.fg("success", `Updated [${role}] model to "${modelId}". Synced to omp settings and Helper GUI.`),
-						{ dim: false }
+						theme.fg("success", `Updated [${role}] model to "${modelId}" in your swarm settings.`),
+						{ dim: false },
 					);
 				} else {
-					runtime.ctx.showError(`Failed to update model for role "${role}". Valid roles: king, queen, worker, testgen, tester.`);
+					runtime.ctx.showError(
+						`Failed to update model for role "${role}". Valid roles: king, queen, worker, testgen, tester.`,
+					);
 				}
 				return;
 			}
@@ -172,12 +178,16 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 					bridge.setUserName(rest.trim());
 					runtime.ctx.showStatus(`Agentcord user name updated to "${rest.trim()}".`);
 				} else {
-					runtime.ctx.showStatus(`Current Agentcord user name: "${bridge.userName}". Use \`/agentcord name <newName>\` to change.`);
+					runtime.ctx.showStatus(
+						`Current Agentcord user name: "${bridge.userName}". Use \`/agentcord name <newName>\` to change.`,
+					);
 				}
 				return;
 			}
 
-			runtime.ctx.showError(`Unknown subcommand "/agentcord ${verb}". Use /agentcord status|gui|connect|test|worker|assign|model|name.`);
+			runtime.ctx.showError(
+				`Unknown subcommand "/agentcord ${verb}". Use /agentcord status|gui|connect|test|worker|assign|model|name.`,
+			);
 		},
 	},
 	{
@@ -206,10 +216,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 			runtime.ctx.showStatus(`Escalating question to [${target}]...`);
 			try {
 				const answer = await bridge.ask(target, question);
-				runtime.ctx.showStatus(
-					`${theme.fg("accent", `Response from [${target}]:`)}\n${answer}`,
-					{ dim: false }
-				);
+				runtime.ctx.showStatus(`${theme.fg("accent", `Response from [${target}]:`)}\n${answer}`, { dim: false });
 			} catch (err) {
 				runtime.ctx.showError(`Failed to ask question: ${errorMessage(err)}`);
 			}
@@ -238,7 +245,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 			const mode = tokens[0].toLowerCase();
 			if (mode === "gc") {
 				const content = tokens.slice(1).join(" ");
-				bridge.sendChat("gc", undefined, content);
+				await bridge.sendChat("gc", undefined, content);
 				runtime.ctx.showStatus(theme.fg("muted", `[GC Message Sent]: ${content}`));
 			} else if (mode === "dm") {
 				if (tokens.length < 3) {
@@ -247,7 +254,7 @@ export const BUILTIN_AGENTCORD_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 				}
 				const recipient = tokens[1];
 				const content = tokens.slice(2).join(" ");
-				bridge.sendChat("dm", recipient, content);
+				await bridge.sendChat("dm", recipient, content);
 				runtime.ctx.showStatus(theme.fg("muted", `[DM to ${recipient}]: ${content}`));
 			} else {
 				runtime.ctx.showError("Invalid mode. Use `/chat gc <message>` or `/chat dm <recipient> <message>`.");

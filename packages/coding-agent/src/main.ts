@@ -283,7 +283,8 @@ function rejectNoUiWithoutRpc(args: Pick<Args, "noUi" | "mode">): void {
 
 /** Fail an interactive launch whose stdin is not a terminal: the TUI cannot run there. */
 function exitWithoutTerminal(): never {
-	const isGitBash = process.platform === "win32" && (Boolean(process.env.MSYSTEM) || process.env.TERM_PROGRAM === "mintty");
+	const isGitBash =
+		process.platform === "win32" && (Boolean(process.env.MSYSTEM) || process.env.TERM_PROGRAM === "mintty");
 	if (isGitBash) {
 		process.stderr.write(
 			`\n${chalk.red.bold("Error: Git Bash (Mintty) detected without a pseudo-console.")}\n` +
@@ -2743,15 +2744,7 @@ export async function runRootCommand(
 				});
 				setActiveAgentcordBridge(agentcordBridge);
 
-				try {
-					const guiUrl = await agentcordBridge.start();
-					notifs.push({
-						kind: "info",
-						message: `Agentcord live at ${guiUrl} | Agents: [Queen: ${userName}], [TestGen], [Tester] | /agentcord for options`,
-					});
-				} catch (error) {
-					logger.warn("Failed to start Agentcord helper GUI", { error: String(error) });
-				}
+				// Hosting is explicit: joining peers must not silently start another king or relay.
 
 				const startupLease = takeStartupComposerLease();
 				try {
@@ -2783,6 +2776,7 @@ export async function runRootCommand(
 					);
 				} finally {
 					startupLease?.dispose();
+					await agentcordBridge.stop();
 				}
 			} else {
 				// Branch-only single-shot runner: keep print-mode code out of normal interactive startup.

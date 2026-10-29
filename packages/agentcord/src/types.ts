@@ -5,6 +5,7 @@
 export type AgentRole = "king" | "queen" | "worker" | "testgen" | "tester";
 
 export type AgentStatus =
+	| "active"
 	| "idle"
 	| "planning"
 	| "working"
@@ -154,4 +155,14 @@ export interface RoomState {
 	questions: QuestionEscalation[];
 	testCases: TestCase[];
 	testRuns: TestRunResult[];
+}
+
+/** Legacy responsibility table exported for existing Agentcord embedders. */
+export interface ResponsibilityMatrixEntry {
+	agentId: string;
+	agentName: string;
+	role: AgentRole;
+	responsibility: string;
+	status: AgentStatus;
+	updatedAt: number;
 }

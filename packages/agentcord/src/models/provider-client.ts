@@ -34,18 +34,13 @@ export class AgentProviderClient {
 		userMessage: string,
 		options: GenerateOptions
 	): Promise<string> {
-		const isSim = model.startsWith("mock-") || model.includes("sim");
-
-		if (!isSim && this.#customHandler) {
-			try {
-				const response = await this.#customHandler(model, systemPrompt, userMessage);
-				if (response) return response;
-			} catch (err) {
-				console.warn(`[Agentcord] Provider execution for ${model} failed, falling back to simulator:`, err);
-			}
+		if (model === "mock-sim-pro" || model === "mock-sim-fast") {
+			return this.generateSimulatedResponse(model, systemPrompt, userMessage, options);
 		}
-
-		return this.generateSimulatedResponse(model, systemPrompt, userMessage, options);
+		if (!this.#customHandler) throw new Error("No provider is connected. Use the Agentcord OMP runner for real execution.");
+		const response = await this.#customHandler(model, systemPrompt, userMessage);
+		if (!response) throw new Error(`Provider ${model} returned no completion; no simulated result was substituted`);
+		return response;
 	}
 
 	/**
